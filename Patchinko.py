@@ -11,29 +11,30 @@ clock = pygame.time.Clock()
 
 # Couleurs
 WHITE = (255, 255, 255)
-GREY = (220, 220, 220)
-BLUE = (100, 100, 255)
-RED = (255, 100, 100)
+GREY  = (220, 220, 220)
+BLUE  = (100, 100, 255)
+RED   = (255, 100, 100)
 BLACK = (0, 0, 0)
 
-# Constantes
+#############
+# CONSTANTS #
+#############
+
 BALL_RADIUS = 8
-PEG_RADIUS = 6
-GRAVITY = 1
+PEG_RADIUS  = 6
+GRAVITY     = 1
 
-PEG_ROW_RATE = 1 / 0.5  # 2 lignes par seconde (toutes les 0.5 secondes)
+PEG_ROW_RATE        = 1 / 0.5  # 2 lignes par seconde (toutes les 0.5 secondes)
 PEG_ROWS_PER_SECOND = PEG_ROW_RATE
-PEG_ROW_INTERVAL = 1 / PEG_ROWS_PER_SECOND
-next_row_index = 0
+PEG_ROW_INTERVAL    = 1 / PEG_ROWS_PER_SECOND
 
-PEGS_PER_ROW = 10
+PEGS_PER_ROW  = 10
 PEG_SPACING_X = WIDTH // PEGS_PER_ROW
 PEG_SPACING_Y = 60
 
 ZONE_HEIGHT = 100
 ZONES = 6
-zone_width = WIDTH // ZONES
-scores = [100, 200, 500, 0, 500, 100]
+
 
 MAX_VY = 5  # vitesse max verticale (pixels/frame)
 
@@ -43,13 +44,26 @@ AMORTISSEMENT_REBOND_Y = 0.9
 Y_TARGET = 150  # position fixe de la balle sur l'écran (caméra suit)
 GENERATION_DURATION = 61  # secondes
 
-# Classe Balle
+# Ajouter au début du code, juste après les constantes déjà définies :
+TRAIL_LENGTH = 15  # nombre de positions mémorisées pour le trail
+
+#############
+# VARIABLES #
+#############
+
+zone_width = WIDTH // ZONES
+scores = [100, 200, 500, 0, 500, 100]
+
+next_row_index = 0
+
+# Dans la classe Ball, ajoute un attribut pour mémoriser le trail dans __init__ :
 class Ball:
     def __init__(self, x):
         self.x = x
         self.real_y = 0
         self.vx = 0
         self.vy = 0
+        self.trail = []  # liste de positions (x, y)
 
     def update(self):
         self.vy += GRAVITY
@@ -61,8 +75,8 @@ class Ball:
             self.vy = -MAX_VY
 
         self.real_y += self.vy
-
         self.x += self.vx
+
         if self.x < BALL_RADIUS:
             self.x = BALL_RADIUS
             self.vx *= -0.7
@@ -71,10 +85,25 @@ class Ball:
             self.vx *= -0.7
             
         # Friction horizontale
-        ball.vx *= 0.98
+        self.vx *= 0.98
 
+        # Mettre à jour le trail
+        self.trail.append((self.x, self.real_y))
+        if len(self.trail) > TRAIL_LENGTH:
+            self.trail.pop(0)
 
     def draw(self, offset_y):
+        # Dessiner le trail avec transparence dégressive
+        for i, (tx, ty) in enumerate(self.trail):
+            screen_y = ty - offset_y
+            if -50 < screen_y < HEIGHT + 50:
+                alpha = int(255 * (i / len(self.trail)))  # transparence du plus vieux au plus récent
+                trail_color = (255, 100, 100, alpha)
+                trail_surf = pygame.Surface((BALL_RADIUS*2, BALL_RADIUS*2), pygame.SRCALPHA)
+                pygame.draw.circle(trail_surf, trail_color, (BALL_RADIUS, BALL_RADIUS), BALL_RADIUS)
+                screen.blit(trail_surf, (int(tx - BALL_RADIUS), int(screen_y - BALL_RADIUS)))
+
+        # Dessiner la balle principale
         screen_y = self.real_y - offset_y
         if -50 < screen_y < HEIGHT + 50:
             pygame.draw.circle(screen, RED, (int(self.x), int(screen_y)), BALL_RADIUS)
