@@ -63,15 +63,6 @@ NOMBRE_ECRAN_DEVANT_LA_BALLE = 2  # On genere les pegs jusqu'a X écrans en dess
 # Ajouter au début du code, juste après les constantes déjà définies :
 TRAIL_LENGTH = 15  # nombre de positions mémorisées pour le trail
 
-#############
-# VARIABLES #
-#############
-
-zone_width = WIDTH // ZONES
-scores = [100, 200, 500, 0, 500, 100]
-
-next_row_index = 0
-
 # Dans la classe Ball, ajoute un attribut pour mémoriser le trail dans __init__ :
 class Ball:
     def __init__(self, x):
@@ -139,11 +130,7 @@ class Booster:
             color = BOOSTER_COULEUR_AJOUT_DROITE if self.side == "left" else BOOSTER_COULEUR_AJOUT_GAUCHE
             pygame.draw.circle(screen, color, (int(self.x), int(screen_y)), BOOSTER_RADIUS)
 
-# Pegs dynamiques
-pegs       = []
-next_row_y = 0
-bassine_y  = None
-
+# Genère les lignes de pegs
 def generate_row(y):
     # Offset classique en quinconce
     offset = (int(y // PEG_SPACING_Y) % 2) * (PEG_SPACING_X // 2)
@@ -158,13 +145,14 @@ def generate_row(y):
             row.append((x, y))
     return row
 
-
+# Dessine les pegs
 def draw_pegs(offset_y):
     for x, y in pegs:
         screen_y = y - offset_y
         if -10 < screen_y < HEIGHT + 10:
             pygame.draw.circle(screen, BLUE, (int(x), int(screen_y)), PEG_RADIUS)
 
+# Dessine les zones de scoring finale
 def draw_zones(offset_y, y):
     screen_y = y - offset_y
     for i in range(ZONES):
@@ -175,6 +163,8 @@ def draw_zones(offset_y, y):
         text = font.render(str(scores[i]), True, BLACK)
         screen.blit(text, (x + zone_width // 2 - 15, screen_y + 10))
 
+
+# Gère les collisions de la balle
 def check_collision(ball):
     global time_left, time_right # On doit les recuperer pour ajouter du temps
 
@@ -216,10 +206,20 @@ def check_collision(ball):
                     time_left += BOOSTER_TIME_GAIN
 
 
-#########
-# DEBUT #
-#########
+#############
+# VARIABLES #
+#############
 
+
+zone_width = WIDTH // ZONES
+scores = [100, 200, 500, 0, 500, 100] # Score en bas de page #OBSOLETE
+
+next_row_index = 0
+
+# Pegs dynamiques
+pegs       = []
+next_row_y = 0
+bassine_y  = None
 
 time_left  = 0
 time_right = 0
@@ -232,6 +232,12 @@ start_time = time.time()
 running    = True
 
 boosters = []
+
+
+#########
+# DEBUT #
+#########
+
 
 while running:
     dt = clock.tick(60) / 1000
