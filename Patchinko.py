@@ -23,6 +23,9 @@ BLACK = (0, 0, 0)
 # CONSTANTS #
 #############
 
+TEXTE_GAUCHE = "TG"
+TEXTE_DROITE = "TD"
+
 BALL_RADIUS = 8
 PEG_RADIUS  = 6
 GRAVITY     = 1
@@ -35,10 +38,11 @@ PEG_ROW_INTERVAL    = 1 / PEG_ROWS_PER_SECOND
 PEGS_PER_ROW  = 10
 PEG_SPACING_X = WIDTH // PEGS_PER_ROW
 PEG_SPACING_Y = 60
+PEGS_DECALAGE_X_GAUCHE = -10 # Négatif car on le bouge vers la gauche
+PEGS_DECALAGE_X_DROITE = 10
 
 ZONE_HEIGHT = 100
 ZONES = 6
-
 
 # Amortissement lors des rebonds
 AMORTISSEMENT_REBOND_X = 0.9 
@@ -47,7 +51,7 @@ AMORTISSEMENT_REBOND_Y = 0.9
 Y_TARGET = 150  # position fixe de la balle sur l'écran (caméra suit)
 GENERATION_DURATION = 61  # secondes avant la fin de la generation de peg
 
-NOMBREECRANDEVANTLABALLE = 2  # On genere les pegs jusqu'a X écrans en dessous de la balle pour eviter qu'elle aille plus vite que la gen
+NOMBRE_ECRAN_DEVANT_LA_BALLE = 2  # On genere les pegs jusqu'a X écrans en dessous de la balle pour eviter qu'elle aille plus vite que la gen
 
 # Ajouter au début du code, juste après les constantes déjà définies :
 TRAIL_LENGTH = 15  # nombre de positions mémorisées pour le trail
@@ -119,13 +123,19 @@ next_row_y = 0
 bassine_y  = None
 
 def generate_row(y):
+    # Offset classique en quinconce
     offset = (int(y // PEG_SPACING_Y) % 2) * (PEG_SPACING_X // 2)
+    
+    # Décalage aléatoire entre PEGS_DECALAGE_X_GAUCHE et PEGS_DECALAGE_X_DROITE pixels sur toute la ligne
+    random_shift = random.randint(PEGS_DECALAGE_X_GAUCHE, PEGS_DECALAGE_X_DROITE)
+
     row = []
     for i in range(PEGS_PER_ROW):
-        x = i * PEG_SPACING_X + offset
+        x = i * PEG_SPACING_X + offset + random_shift
         if 0 < x < WIDTH:
             row.append((x, y))
     return row
+
 
 def draw_pegs(offset_y):
     for x, y in pegs:
@@ -192,7 +202,7 @@ while running:
                 running = False
 
     # Génération dynamique continue
-    GENERATE_AHEAD_Y = HEIGHT * NOMBREECRANDEVANTLABALLE
+    GENERATE_AHEAD_Y = HEIGHT * NOMBRE_ECRAN_DEVANT_LA_BALLE
 
     while next_row_index * PEG_SPACING_Y < balls[0].real_y + GENERATE_AHEAD_Y and (next_row_index * PEG_SPACING_Y) < GENERATION_DURATION * MAX_VY * 60:
         y = next_row_index * PEG_SPACING_Y
@@ -234,10 +244,10 @@ while running:
 
     # Affichage des temps
     font = pygame.font.SysFont(None, 32)
-    time_left_text = font.render(f"Temps Gauche : {time_left:.1f}s", True, BLACK)
-    time_right_text = font.render(f"Temps Droite : {time_right:.1f}s", True, BLACK)
+    time_left_text = font.render(f"{TEXTE_GAUCHE} : {time_left:.1f}s", True, BLACK)
+    time_right_text = font.render(f"{TEXTE_DROITE} : {time_right:.1f}s", True, BLACK)
     screen.blit(time_left_text, (10, 10))
-    screen.blit(time_right_text, (10, 40))
+    screen.blit(time_right_text, (500, 10))
 
     if finished:
         text = font.render("Fin ! Appuie sur Échap pour quitter", True, BLACK)
