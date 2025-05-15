@@ -1,3 +1,6 @@
+# Idee
+# Mettre des boosters, qui donne genre X secondes a tel ou tel camp
+
 import pygame
 import random
 import math
@@ -23,11 +26,12 @@ BLACK = (0, 0, 0)
 BALL_RADIUS = 8
 PEG_RADIUS  = 6
 GRAVITY     = 1
+MAX_VY      = 5  # vitesse max verticale (pixels/frame)
 
+# Generation des Pegs (bloqueurs)
 PEG_ROW_RATE        = 1 / 0.5  # 2 lignes par seconde (toutes les 0.5 secondes)
 PEG_ROWS_PER_SECOND = PEG_ROW_RATE
 PEG_ROW_INTERVAL    = 1 / PEG_ROWS_PER_SECOND
-
 PEGS_PER_ROW  = 10
 PEG_SPACING_X = WIDTH // PEGS_PER_ROW
 PEG_SPACING_Y = 60
@@ -36,13 +40,14 @@ ZONE_HEIGHT = 100
 ZONES = 6
 
 
-MAX_VY = 5  # vitesse max verticale (pixels/frame)
-
-AMORTISSEMENT_REBOND_X = 0.9
+# Amortissement lors des rebonds
+AMORTISSEMENT_REBOND_X = 0.9 
 AMORTISSEMENT_REBOND_Y = 0.9
 
 Y_TARGET = 150  # position fixe de la balle sur l'écran (caméra suit)
-GENERATION_DURATION = 61  # secondes
+GENERATION_DURATION = 61  # secondes avant la fin de la generation de peg
+
+NOMBREECRANDEVANTLABALLE = 2  # On genere les pegs jusqu'a X écrans en dessous de la balle pour eviter qu'elle aille plus vite que la gen
 
 # Ajouter au début du code, juste après les constantes déjà définies :
 TRAIL_LENGTH = 15  # nombre de positions mémorisées pour le trail
@@ -59,11 +64,11 @@ next_row_index = 0
 # Dans la classe Ball, ajoute un attribut pour mémoriser le trail dans __init__ :
 class Ball:
     def __init__(self, x):
-        self.x = x
+        self.x      = x
         self.real_y = 0
-        self.vx = 0
-        self.vy = 0
-        self.trail = []  # liste de positions (x, y)
+        self.vx     = 0
+        self.vy     = 0
+        self.trail  = []  # liste de positions (x, y)
 
     def update(self):
         self.vy += GRAVITY
@@ -75,13 +80,13 @@ class Ball:
             self.vy = -MAX_VY
 
         self.real_y += self.vy
-        self.x += self.vx
+        self.x      += self.vx
 
         if self.x < BALL_RADIUS:
-            self.x = BALL_RADIUS
+            self.x   = BALL_RADIUS
             self.vx *= -0.7
         elif self.x > WIDTH - BALL_RADIUS:
-            self.x = WIDTH - BALL_RADIUS
+            self.x   = WIDTH - BALL_RADIUS
             self.vx *= -0.7
             
         # Friction horizontale
@@ -97,9 +102,9 @@ class Ball:
         for i, (tx, ty) in enumerate(self.trail):
             screen_y = ty - offset_y
             if -50 < screen_y < HEIGHT + 50:
-                alpha = int(255 * (i / len(self.trail)))  # transparence du plus vieux au plus récent
+                alpha       = int(255 * (i / len(self.trail)))  # transparence du plus vieux au plus récent
                 trail_color = (255, 100, 100, alpha)
-                trail_surf = pygame.Surface((BALL_RADIUS*2, BALL_RADIUS*2), pygame.SRCALPHA)
+                trail_surf  = pygame.Surface((BALL_RADIUS*2, BALL_RADIUS*2), pygame.SRCALPHA)
                 pygame.draw.circle(trail_surf, trail_color, (BALL_RADIUS, BALL_RADIUS), BALL_RADIUS)
                 screen.blit(trail_surf, (int(tx - BALL_RADIUS), int(screen_y - BALL_RADIUS)))
 
@@ -109,9 +114,9 @@ class Ball:
             pygame.draw.circle(screen, RED, (int(self.x), int(screen_y)), BALL_RADIUS)
 
 # Pegs dynamiques
-pegs = []
+pegs       = []
 next_row_y = 0
-bassine_y = None
+bassine_y  = None
 
 def generate_row(y):
     offset = (int(y // PEG_SPACING_Y) % 2) * (PEG_SPACING_X // 2)
@@ -140,14 +145,14 @@ def draw_zones(offset_y, y):
 
 def check_collision(ball):
     for px, py in pegs:
-        dx = ball.x - px
-        dy = ball.real_y - py
+        dx   = ball.x - px
+        dy   = ball.real_y - py
         dist = math.hypot(dx, dy)
         min_dist = BALL_RADIUS + PEG_RADIUS
 
         if dist < min_dist and dist != 0:
-            nx = dx / dist
-            ny = dy / dist
+            nx      = dx / dist
+            ny      = dy / dist
             overlap = min_dist - dist
             ball.x += nx * overlap
             ball.real_y += ny * overlap
@@ -165,12 +170,15 @@ def check_collision(ball):
             ball.vy += random.uniform(-0.1, 0.1)
 
 
-balls = [Ball(WIDTH // 2)]
+balls       = [Ball(WIDTH // 2)]
 total_score = 0
-finished = False
+finished    = False
 
 start_time = time.time()
-running = True
+running    = True
+
+time_left  = 0
+time_right = 0
 
 while running:
     dt = clock.tick(60) / 1000
@@ -179,11 +187,12 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-            
-   
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE and finished:
+                running = False
 
     # Génération dynamique continue
-    GENERATE_AHEAD_Y = HEIGHT * 2  # par ex. 2 écrans devant la balle
+    GENERATE_AHEAD_Y = HEIGHT * NOMBREECRANDEVANTLABALLE
 
     while next_row_index * PEG_SPACING_Y < balls[0].real_y + GENERATE_AHEAD_Y and (next_row_index * PEG_SPACING_Y) < GENERATION_DURATION * MAX_VY * 60:
         y = next_row_index * PEG_SPACING_Y
@@ -194,14 +203,19 @@ while running:
     if bassine_y is None and next_row_index * PEG_SPACING_Y >= GENERATION_DURATION * MAX_VY * 60:
         bassine_y = next_row_index * PEG_SPACING_Y
 
-
-    screen.fill(WHITE)
+    screen.fill(WHITE) # Background
 
     if balls:
         ball = balls[0]
         ball.update()
         check_collision(ball)
         offset_y = ball.real_y - Y_TARGET
+
+        # Mise à jour des timers selon position x de la balle
+        if ball.x < WIDTH / 2:
+            time_left += dt
+        else:
+            time_right += dt
     else:
         offset_y = bassine_y - HEIGHT  # montrer le bas si la balle est terminée
 
@@ -214,15 +228,16 @@ while running:
         ball.draw(offset_y)
         if bassine_y and ball.real_y > bassine_y:
             zone_index = int(ball.x // zone_width)
-            if 0 <= zone_index < len(scores):
-                total_score += scores[zone_index]
+            # total_score += scores[zone_index]  # plus utilisé pour le moment
             balls.remove(ball)
             finished = True
 
-    # Affichage du score
+    # Affichage des temps
     font = pygame.font.SysFont(None, 32)
-    score_text = font.render(f"Score: {total_score}", True, BLACK)
-    screen.blit(score_text, (10, 10))
+    time_left_text = font.render(f"Temps Gauche : {time_left:.1f}s", True, BLACK)
+    time_right_text = font.render(f"Temps Droite : {time_right:.1f}s", True, BLACK)
+    screen.blit(time_left_text, (10, 10))
+    screen.blit(time_right_text, (10, 40))
 
     if finished:
         text = font.render("Fin ! Appuie sur Échap pour quitter", True, BLACK)
