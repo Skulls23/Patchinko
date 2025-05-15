@@ -3,11 +3,23 @@ import random
 import math
 import time
 
+
+###############
+# INIT PYGAME #
+###############
+
+
 pygame.init()
 WIDTH, HEIGHT = 600, 800
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Pachinko Scrolling Suivi Balle Génération 61s")
 clock = pygame.time.Clock()
+
+
+#############
+# CONSTANTS #
+#############
+
 
 # Couleurs
 WHITE = (255, 255, 255)
@@ -19,19 +31,19 @@ BLACK = (0, 0, 0)
 BACKGROUND_LAYER_GAUCHE = (240, 240, 255, 230) # Bleu très clair avec un peu de transparence
 BACKGROUND_LAYER_DROITE = (255, 240, 240, 230) # Rouge très clair avec un peu de transparence
 
-#############
-# CONSTANTS #
-#############
-
 TEXTE_GAUCHE = "TG"
 TEXTE_DROITE = "TD"
 
+# Generation de la balle
 BALL_RADIUS = 8
-PEG_RADIUS  = 6
+BALL_COLOR  = RED
+BALL_TRAIL_COLOR  = (255, 255, 255)
 GRAVITY     = 1
 MAX_VY      = 5  # vitesse max verticale (pixels/frame)
 
+
 # Generation des Pegs (bloqueurs)
+PEG_RADIUS  = 6
 PEG_ROW_RATE        = 1 / 0.5  # 2 lignes par seconde (toutes les 0.5 secondes)
 PEG_ROWS_PER_SECOND = PEG_ROW_RATE
 PEG_ROW_INTERVAL    = 1 / PEG_ROWS_PER_SECOND
@@ -105,7 +117,7 @@ class Ball:
             screen_y = ty - offset_y
             if -50 < screen_y < HEIGHT + 50:
                 alpha       = int(255 * (i / len(self.trail)))  # transparence du plus vieux au plus récent
-                trail_color = (255, 100, 100, alpha)
+                trail_color = (BALL_TRAIL_COLOR[0], BALL_TRAIL_COLOR[1], BALL_TRAIL_COLOR[2], alpha)
                 trail_surf  = pygame.Surface((BALL_RADIUS*2, BALL_RADIUS*2), pygame.SRCALPHA)
                 pygame.draw.circle(trail_surf, trail_color, (BALL_RADIUS, BALL_RADIUS), BALL_RADIUS)
                 screen.blit(trail_surf, (int(tx - BALL_RADIUS), int(screen_y - BALL_RADIUS)))
@@ -113,7 +125,7 @@ class Ball:
         # Dessiner la balle principale
         screen_y = self.real_y - offset_y
         if -50 < screen_y < HEIGHT + 50:
-            pygame.draw.circle(screen, RED, (int(self.x), int(screen_y)), BALL_RADIUS)
+            pygame.draw.circle(screen, BALL_COLOR, (int(self.x), int(screen_y)), BALL_RADIUS)
 
 class Booster:
     def __init__(self, x, y, side):
