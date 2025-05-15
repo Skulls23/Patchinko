@@ -1,6 +1,3 @@
-# Idee
-# Mettre des boosters, qui donne genre X secondes a tel ou tel camp
-
 import pygame
 import random
 import math
@@ -18,6 +15,9 @@ GREY  = (220, 220, 220)
 BLUE  = (100, 100, 255)
 RED   = (255, 100, 100)
 BLACK = (0, 0, 0)
+
+BACKGROUND_LAYER_GAUCHE = (240, 240, 255, 230) # Bleu très clair avec un peu de transparence
+BACKGROUND_LAYER_DROITE = (255, 240, 240, 230) # Rouge très clair avec un peu de transparence
 
 #############
 # CONSTANTS #
@@ -41,12 +41,19 @@ PEG_SPACING_Y = 60
 PEGS_DECALAGE_X_GAUCHE = -10 # Négatif car on le bouge vers la gauche
 PEGS_DECALAGE_X_DROITE = 10
 
+# Generation des boosters
+BOOSTER_RADIUS    = 12
+BOOSTER_TIME_GAIN = 5  # secondes ajoutées quand on touche un booster
+BOOSTER_CHANCE    = 100  # 10% de chance par ligne
+BOOSTER_COULEUR_AJOUT_GAUCHE = BLACK # (0, 200, 0)
+BOOSTER_COULEUR_AJOUT_DROITE = WHITE # (200, 0, 200)
+
 ZONE_HEIGHT = 100
 ZONES = 6
 
 # Amortissement lors des rebonds
-AMORTISSEMENT_REBOND_X = 0.9 
-AMORTISSEMENT_REBOND_Y = 0.9
+AMORTISSEMENT_REBOND_X = 0.9 # amortir plus fort latéralement?
+AMORTISSEMENT_REBOND_Y = 0.9 # amortir moins la verticale pour plus de rebond naturel?
 
 Y_TARGET = 150  # position fixe de la balle sur l'écran (caméra suit)
 GENERATION_DURATION = 61  # secondes avant la fin de la generation de peg
@@ -117,6 +124,21 @@ class Ball:
         if -50 < screen_y < HEIGHT + 50:
             pygame.draw.circle(screen, RED, (int(self.x), int(screen_y)), BALL_RADIUS)
 
+class Booster:
+    def __init__(self, x, y, side):
+        self.x = x
+        self.y = y
+        self.side = side  # "left" ou "right"
+        self.collected = False
+
+    def draw(self, offset_y):
+        if self.collected:
+            return
+        screen_y = self.y - offset_y
+        if -50 < screen_y < HEIGHT + 50:
+            color = BOOSTER_COULEUR_AJOUT_DROITE if self.side == "left" else BOOSTER_COULEUR_AJOUT_GAUCHE
+            pygame.draw.circle(screen, color, (int(self.x), int(screen_y)), BOOSTER_RADIUS)
+
 # Pegs dynamiques
 pegs       = []
 next_row_y = 0
@@ -154,6 +176,8 @@ def draw_zones(offset_y, y):
         screen.blit(text, (x + zone_width // 2 - 15, screen_y + 10))
 
 def check_collision(ball):
+    global time_left, time_right # On doit les recuperer pour ajouter du temps
+
     for px, py in pegs:
         dx   = ball.x - px
         dy   = ball.real_y - py
@@ -172,13 +196,33 @@ def check_collision(ball):
             ball.vy -= 2 * v_dot_n * ny
 
             # Amortissement plus différencié
-            ball.vx *= AMORTISSEMENT_REBOND_X  # amortir plus fort latéralement
-            ball.vy *= AMORTISSEMENT_REBOND_Y  # amortir moins la verticale pour plus de rebond naturel
+            ball.vx *= AMORTISSEMENT_REBOND_X
+            ball.vy *= AMORTISSEMENT_REBOND_Y
 
             # Ajouter un peu de bruit aléatoire sur les 2 axes
             ball.vx += random.uniform(-0.2, 0.2)
             ball.vy += random.uniform(-0.1, 0.1)
+            
+    for booster in boosters:
+        if not booster.collected:
+            dx = ball.x - booster.x
+            dy = ball.real_y - booster.y
+            dist = math.hypot(dx, dy)
+            if dist < BALL_RADIUS + BOOSTER_RADIUS:
+                booster.collected = True
+                if booster.side == "left": # Punition pour permettre aux autres de remonter
+                    time_right += BOOSTER_TIME_GAIN
+                else:
+                    time_left += BOOSTER_TIME_GAIN
 
+
+#########
+# DEBUT #
+#########
+
+
+time_left  = 0
+time_right = 0
 
 balls       = [Ball(WIDTH // 2)]
 total_score = 0
@@ -187,8 +231,7 @@ finished    = False
 start_time = time.time()
 running    = True
 
-time_left  = 0
-time_right = 0
+boosters = []
 
 while running:
     dt = clock.tick(60) / 1000
@@ -205,8 +248,16 @@ while running:
     GENERATE_AHEAD_Y = HEIGHT * NOMBRE_ECRAN_DEVANT_LA_BALLE
 
     while next_row_index * PEG_SPACING_Y < balls[0].real_y + GENERATE_AHEAD_Y and (next_row_index * PEG_SPACING_Y) < GENERATION_DURATION * MAX_VY * 60:
-        y = next_row_index * PEG_SPACING_Y
+        # Pegs
+        y     = next_row_index * PEG_SPACING_Y
         pegs += generate_row(y)
+        
+        # Booster
+        if random.random() < BOOSTER_CHANCE:
+            boosterX = random.randint(BOOSTER_RADIUS, WIDTH - BOOSTER_RADIUS)
+            bside = "left" if boosterX < WIDTH // 2 else "right"
+            boosters.append(Booster(boosterX, y, bside))
+
         next_row_index += 1
 
     # Une fois la génération "temps" dépassée, on fixe la bassine (zone finale) à la fin
@@ -229,6 +280,16 @@ while running:
     else:
         offset_y = bassine_y - HEIGHT  # montrer le bas si la balle est terminée
 
+    # Dessiner les backgrounds gauche et droit
+    left_surf = pygame.Surface((WIDTH // 2, HEIGHT), pygame.SRCALPHA).convert_alpha()
+    right_surf = pygame.Surface((WIDTH // 2, HEIGHT), pygame.SRCALPHA).convert_alpha()
+
+    left_surf.fill(BACKGROUND_LAYER_GAUCHE)   # BG GAUCHE avec alpha
+    right_surf.fill(BACKGROUND_LAYER_DROITE)  # BG DROIT avec alpha
+
+    screen.blit(left_surf, (0, 0))
+    screen.blit(right_surf, (WIDTH // 2, 0))
+
     draw_pegs(offset_y)
 
     if bassine_y:
@@ -241,6 +302,9 @@ while running:
             # total_score += scores[zone_index]  # plus utilisé pour le moment
             balls.remove(ball)
             finished = True
+            
+    for booster in boosters:
+        booster.draw(offset_y)
 
     # Affichage des temps
     font = pygame.font.SysFont(None, 32)
